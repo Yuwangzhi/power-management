@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+dist/
+*.app/
+*.dSYM/
+output/
+.swiftpm/
+# Local remote-connection helpers are outside this app's distribution.
+codex-start-app-server.ps1
+codex-win-ssh-wrapper.sh
