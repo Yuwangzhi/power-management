@@ -17,9 +17,11 @@ struct PowerCoreTests {
         let batt = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=123)\t100%; charged; 0:00 remaining present: true"
         func state(_ disabled: Int = 0, _ settings: String = custom,
                    installed: Bool = false, loaded: Bool = false,
-                   daemon: String = "", readable: Bool = true) -> PowerSnapshot {
+                   daemon: String = "", readable: Bool = true,
+                   screenSaver: Int? = 0, screenSaverGuard: Bool = true) -> PowerSnapshot {
             PowerSnapshot.parse(system: "System-wide power settings:\n SleepDisabled\t\(disabled)\n", custom: settings,
-                                batt: batt, daemon: daemon, installed: installed, loaded: loaded, readable: readable)
+                                batt: batt, daemon: daemon, installed: installed, loaded: loaded, readable: readable,
+                                screenSaverIdleSeconds: screenSaver, screenSaverGuardInstalled: screenSaverGuard)
         }
         let normal = state()
         assert(normal.mode == .normal)
@@ -33,6 +35,10 @@ struct PowerCoreTests {
         assert(state(1, awake, installed: true).mode == .partial)
         assert(state(1, awake, installed: true, loaded: true, daemon: "last exit code = 1").mode == .partial)
         assert(state(1, custom, installed: true, loaded: true).mode == .partial)
+        assert(state(1, awake, installed: true, loaded: true, screenSaver: 1200).mode == .partial)
+        assert(state(1, awake, installed: true, loaded: true, screenSaver: nil).mode == .partial)
+        assert(state(1, awake, installed: true, loaded: true, screenSaverGuard: false).mode == .partial)
+        assert(state(screenSaver: 1200, screenSaverGuard: false).mode == .normal)
         assert(state(installed: true).mode == .partial)
         assert(state(readable: false).mode == .unavailable)
         assert(state(0, "").mode == .unavailable)
@@ -41,6 +47,9 @@ struct PowerCoreTests {
                                           daemon: "", installed: false, loaded: false)
         assert(battery.source == "电池供电" && battery.batteryPercent == 42 && battery.batteryState == "正在使用电池")
         assert(PowerSnapshot.minutes(nil) == "—" && PowerSnapshot.minutes(0) == "永不")
+        assert(ScreenSaverSettings.description(0) == "永不")
+        assert(ScreenSaverSettings.description(1200) == "20 分钟后")
+        assert(ScreenSaverSettings.description(nil) == "无法读取")
         let path = "/tmp/Power 中文 'quoted' \"folder\"/$(touch should-not-exist)`whoami`"
         let quoted = Shell.run("/bin/zsh", ["-c", "/usr/bin/printf '%s' " + Shell.quote(path)])
         assert(quoted.status == 0 && quoted.output == path)

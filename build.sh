@@ -29,7 +29,7 @@ fi
 /bin/cp "$BASE_DIR/Resources/Info.plist" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/bin/plutil -lint "$APP/Contents/Info.plist"
-for script in install.sh restore-default-sleep.sh codex-power-keepawake.sh power-settings.sh com.yuwangzhi.codex-power-keepawake.plist; do
+for script in install.sh restore-default-sleep.sh codex-power-keepawake.sh power-settings.sh screensaver-settings.sh com.yuwangzhi.codex-power-keepawake.plist; do
   /bin/cp "$BASE_DIR/$script" "$APP/Contents/Resources/Scripts/$script"
 done
 /bin/chmod 755 "$APP/Contents/Resources/Scripts/"*.sh

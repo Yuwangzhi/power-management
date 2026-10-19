@@ -12,3 +12,6 @@ set -eu
 # Battery power: keep display, system, and disk awake as well.
 # This is useful for remote Codex continuity, but it can drain battery and increase heat.
 /usr/bin/pmset -b displaysleep 0 sleep 0 disksleep 0 tcpkeepalive 1 powernap 1 ttyskeepawake 1
+
+# Turning display sleep off does not stop the separate animated screen saver.
+/bin/zsh "${0:A:h}/screensaver-settings.sh" 0

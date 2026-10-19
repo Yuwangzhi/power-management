@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 struct CommandResult {
     let status: Int32
@@ -50,9 +51,9 @@ enum PowerMode: String, Codable {
 
     var detail: String {
         switch self {
-        case .normal: return "Mac 按当前电源策略睡眠。开启防睡眠后，可用于长时间任务与远程连接。"
-        case .keepAwake: return "已禁用系统睡眠，后台服务每 15 秒检查并重新应用设置。网络连接仍取决于实际网络。"
-        case .partial: return "系统设置与后台服务不完全一致。可以重新开启防睡眠，或恢复正常睡眠。"
+        case .normal: return "Mac 按当前电源策略睡眠。开启防睡眠会同时关闭自动屏保；恢复正常睡眠会将屏保设为 20 分钟。"
+        case .keepAwake: return "已禁用自动睡眠和自动屏保，关闭窗口后也会持续生效。网络连接仍取决于实际网络。"
+        case .partial: return "电源、自动屏保或后台服务不完全一致。可以修复并开启防睡眠，或恢复正常睡眠。"
         case .unavailable: return "读取系统电源设置失败，请刷新状态或查看诊断信息。"
         }
     }
@@ -67,6 +68,37 @@ enum PowerMode: String, Codable {
     }
 }
 
+enum ScreenSaverSettings {
+    static let defaultSeconds = 20 * 60
+    static let guardPath = "/usr/local/sbin/screensaver-settings.sh"
+
+    static func captureIdleSeconds() -> Int? {
+        let domain = "com.apple.screensaver" as CFString
+        for host in [kCFPreferencesCurrentHost, kCFPreferencesAnyHost] {
+            guard CFPreferencesSynchronize(domain, kCFPreferencesCurrentUser, host) else { return nil }
+            if let value = CFPreferencesCopyValue("idleTime" as CFString, domain, kCFPreferencesCurrentUser, host) {
+                guard let number = value as? NSNumber, number.intValue >= 0 else { return nil }
+                return number.intValue
+            }
+        }
+        return defaultSeconds
+    }
+
+    static var guardInstalled: Bool {
+        guard FileManager.default.isExecutableFile(atPath: guardPath),
+              let script = try? String(contentsOfFile: "/usr/local/sbin/codex-power-keepawake.sh", encoding: .utf8) else {
+            return false
+        }
+        return script.contains("/screensaver-settings.sh\" 0")
+    }
+
+    static func description(_ seconds: Int?) -> String {
+        guard let seconds = seconds else { return "无法读取" }
+        if seconds == 0 { return "永不" }
+        return seconds.isMultiple(of: 60) ? "\(seconds / 60) 分钟后" : "\(seconds) 秒后"
+    }
+}
+
 struct PowerSnapshot: Codable {
     static let label = "com.yuwangzhi.codex-power-keepawake"
     static let plistPath = "/Library/LaunchDaemons/\(label).plist"
@@ -77,6 +109,8 @@ struct PowerSnapshot: Codable {
     let daemonInstalled: Bool
     let daemonLoaded: Bool
     let daemonLastExitCode: Int?
+    let screenSaverIdleSeconds: Int?
+    let screenSaverGuardInstalled: Bool
     let source: String
     let batteryPercent: Int?
     let batteryState: String
@@ -103,7 +137,8 @@ struct PowerSnapshot: Codable {
 
     static func parse(system: String, custom: String, batt: String,
                       daemon: String, installed: Bool, loaded: Bool,
-                      readable: Bool = true) -> PowerSnapshot {
+                      readable: Bool = true, screenSaverIdleSeconds: Int? = nil,
+                      screenSaverGuardInstalled: Bool = false) -> PowerSnapshot {
         func integer(after key: String, in text: String) -> Int? {
             for line in text.components(separatedBy: .newlines) {
                 let fields = line.split(whereSeparator: { $0.isWhitespace })
@@ -123,7 +158,8 @@ struct PowerSnapshot: Codable {
         let hasSettings = sleepDisabled != nil && values.ac["sleep"] != nil && values.battery["sleep"] != nil
         let mode: PowerMode
         if !readable || !hasSettings { mode = .unavailable }
-        else if sleepDisabled == 1 && loaded && allAwake && (daemonExit ?? 0) == 0 { mode = .keepAwake }
+        else if sleepDisabled == 1 && loaded && allAwake && (daemonExit ?? 0) == 0 &&
+                    screenSaverIdleSeconds == 0 && screenSaverGuardInstalled { mode = .keepAwake }
         else if sleepDisabled == 1 || installed || loaded { mode = .partial }
         else { mode = .normal }
 
@@ -142,10 +178,13 @@ struct PowerSnapshot: Codable {
 
         return PowerSnapshot(capturedAt: Date(), mode: mode, sleepDisabled: sleepDisabled,
                              daemonInstalled: installed, daemonLoaded: loaded,
-                             daemonLastExitCode: daemonExit, source: source,
+                             daemonLastExitCode: daemonExit,
+                             screenSaverIdleSeconds: screenSaverIdleSeconds,
+                             screenSaverGuardInstalled: screenSaverGuardInstalled,
+                             source: source,
                              batteryPercent: percentage, batteryState: batteryState,
                              ac: values.ac, battery: values.battery,
-                             raw: "pmset -g\n\(system)\npmset -g custom\n\(custom)\npmset -g batt\n\(batt)\nlaunchctl\n\(daemon)")
+                             raw: "pmset -g\n\(system)\npmset -g custom\n\(custom)\npmset -g batt\n\(batt)\nlaunchctl\n\(daemon)\nscreen saver\nidleTime = \(screenSaverIdleSeconds.map(String.init) ?? "unavailable")\nbackground screen saver control installed = \(screenSaverGuardInstalled)")
     }
 
     static func capture() -> PowerSnapshot {
@@ -156,7 +195,9 @@ struct PowerSnapshot: Codable {
         return parse(system: system.output, custom: custom.output, batt: batt.output,
                      daemon: daemon.output, installed: FileManager.default.fileExists(atPath: plistPath),
                      loaded: daemon.status == 0,
-                     readable: system.status == 0 && custom.status == 0 && batt.status == 0)
+                     readable: system.status == 0 && custom.status == 0 && batt.status == 0,
+                     screenSaverIdleSeconds: ScreenSaverSettings.captureIdleSeconds(),
+                     screenSaverGuardInstalled: ScreenSaverSettings.guardInstalled)
     }
 
     static func minutes(_ value: Int?) -> String {

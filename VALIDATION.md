@@ -1,4 +1,22 @@
-# 1.0.0 验证记录
+# 验证记录
+
+## 1.1.0 — 2026-10-19（Asia/Shanghai）
+
+环境：Apple Silicon Mac，macOS 26.6。
+
+- `./test.sh` 通过：屏保 0/1200 秒联动、后台修正被改动的屏保、重复应用不重复写偏好、桌面用户上下文、登录窗口跳过、缺省偏好、非法参数、失败时恢复原屏保、旧版正常睡眠恢复，以及原有电源解析/快照/回滚测试。
+- `./build.sh --universal --install` 通过，本机 `/Applications/Power Management.app` 已更新到 1.1.0；安装前的版本按原流程保存为 ZIP。
+- 实际打开安装后的原生窗口并检查：新增“自动屏保”状态、“开启时永不，关闭时 20 分钟后”的勾选提示、修复/恢复按钮和 v1.1.0 均显示完整。
+- 在真实用户上下文运行 App 内同源屏保脚本，设置 1200 秒后，重新打开系统设置确认“20 分钟后”；随后恢复为 0 秒，原生 App 和 `--diagnose` 确认“永不”。系统设置已打开的页面可能保留旧显示，重启系统设置后读取到新值。
+- 原生 arm64 与 Rosetta x86_64 的 `--diagnose` 均通过，包含屏保时间与后台屏保控制安装状态。
+- `codesign --verify --strict` 通过，`lipo -archs` 为 `x86_64 arm64`；已安装和发布构建的可执行文件 SHA-256 一致：`5ea554f9f40578707e0742d4c2e0b66687eff06b929f337aad814f8722e7655d`。
+- Spotlight 索引查询仍返回 `/Applications/Power Management.app`。
+- `./package.sh` 生成 1.1.0 通用版 ZIP，ZIP 完整性和 `SHA256SUMS.txt` 校验通过。
+- Command Line Tools 链接 Intel slice 时提示其 `libswiftCompatibilityPacks.a` 缺少 x86_64 slice；构建成功，生成的 Intel 二进制已通过本机 Rosetta 诊断运行验证。
+
+验证边界：安装新版 App 无需管理员权限，但替换旧系统后台服务需要系统管理员授权。本次已从新版窗口发起“修复并开启防睡眠”，当时系统正在等待用户完成授权；真实后台切换与自动修正尚未核验。屏保设置读写已在本机实测，完整模式切换、后台修正和失败回滚在隔离环境核验。没有把隔离测试记为真实管理员切换结果。
+
+## 1.0.0
 
 日期：2026-10-17（Asia/Shanghai）。环境：Apple Silicon Mac，macOS 26.6，Apple Command Line Tools / Swift 6.4。
 
