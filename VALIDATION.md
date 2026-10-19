@@ -12,9 +12,12 @@
 - `codesign --verify --strict` 通过，`lipo -archs` 为 `x86_64 arm64`；已安装和发布构建的可执行文件 SHA-256 一致：`5ea554f9f40578707e0742d4c2e0b66687eff06b929f337aad814f8722e7655d`。
 - Spotlight 索引查询仍返回 `/Applications/Power Management.app`。
 - `./package.sh` 生成 1.1.0 通用版 ZIP，ZIP 完整性和 `SHA256SUMS.txt` 校验通过。
+- 已在真实原生窗口完成管理员授权并升级后台服务：界面显示“防睡眠已开启”，`--diagnose` 返回 `keepAwake`、`screenSaverIdleSeconds=0`、`screenSaverGuardInstalled=true`、`daemonLoaded=true`，服务退出码为 0。
+- 在本机把自动屏保临时改为 1200 秒，真实系统后台服务在下个周期将其恢复为 0 秒；随后再次读取诊断确认防睡眠和屏保都处于预期状态。已安装到系统的两份守护脚本与仓库文件逐字节相同。
+- 代码已推送 GitHub，v1.1.0 发布完成；重新下载远端 ZIP 并核验 SHA-256、ZIP 完整性、App 签名及与本机已安装二进制的一致性，全部通过。
 - Command Line Tools 链接 Intel slice 时提示其 `libswiftCompatibilityPacks.a` 缺少 x86_64 slice；构建成功，生成的 Intel 二进制已通过本机 Rosetta 诊断运行验证。
 
-验证边界：安装新版 App 无需管理员权限，但替换旧系统后台服务需要系统管理员授权。本次已从新版窗口发起“修复并开启防睡眠”，当时系统正在等待用户完成授权；真实后台切换与自动修正尚未核验。屏保设置读写已在本机实测，完整模式切换、后台修正和失败回滚在隔离环境核验。没有把隔离测试记为真实管理员切换结果。
+验证边界：安装新版 App 无需管理员权限，替换旧系统后台服务需要系统管理员授权，本次已完成。屏保设置读写、真实服务升级和后台自动修正在本机实测；完整关闭/重新开启及失败回滚在隔离环境核验，没有在本次实机上关闭当前防睡眠模式。未在独立 Intel Mac 或 macOS 13 设备上测试。
 
 ## 1.0.0
 
